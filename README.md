@@ -1,1 +1,2 @@
-# OpenWorldPlayground
+# OpenWorldTemplate
+ Open World Template
