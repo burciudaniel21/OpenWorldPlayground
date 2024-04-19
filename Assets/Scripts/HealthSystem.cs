@@ -18,16 +18,7 @@ public class HealthSystem : MonoBehaviour
         Damage(50);
         UpdateHealthBar();
     }
-
-    public void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.Q)) { 
-            Damage(50);
-        }
-    }
-
     public int GetHealth() => health;
-
     public void Damage(int damageAmount)
     {
         if (!isDead)
