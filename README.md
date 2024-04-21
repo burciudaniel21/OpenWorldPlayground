@@ -1,2 +1,1 @@
-# OpenWorldTemplate
- Open World Template
+# Open World 
