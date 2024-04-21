@@ -3,20 +3,30 @@ using UnityEngine.UI;
 using System.Collections;
 using System;
 using UnityEngine.SceneManagement;
+using TMPro;
 
 public class HealthSystem : MonoBehaviour
 {
-    [SerializeField] private int health;
-    [SerializeField] private int maxHealth;
+    [HideInInspector] private int health;
+    [HideInInspector] public int maxHealth; //this does not need to be for the player as the player stats handles that.
     [SerializeField] private Image healthBar;
 
-    private bool isDead = false;
+    [SerializeField] private TMPro.TextMeshProUGUI healthText; //debug only
+
+    [HideInInspector] public bool isDead = false;
 
     public void Start()
     {
         health = maxHealth;
-        Damage(50);
         UpdateHealthBar();
+    }
+
+    private void Update()
+    {
+        if(healthText != null)
+        {
+            healthText.text = health.ToString();
+        }
     }
     public int GetHealth() => health;
     public void Damage(int damageAmount)
@@ -63,14 +73,17 @@ public class HealthSystem : MonoBehaviour
     private IEnumerator DespawnAfterDelay(float delay)
     {
         Rigidbody rb = GetComponent<Rigidbody>();
-        rb.constraints = RigidbodyConstraints.FreezeAll;
+        if(rb != null)
+        {
+            rb.constraints = RigidbodyConstraints.FreezeAll;
+        }
         DisableObjectInput();
         yield return new WaitForSeconds(delay);
         if (gameObject.tag != "Player")
         {
             Destroy(gameObject);
         }
-        else if(gameObject.tag == "Player")
+        else if (gameObject.tag == "Player")
         {
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }

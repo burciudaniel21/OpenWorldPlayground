@@ -1,94 +1,136 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
 public class EnemyAI : MonoBehaviour
 {
-    public Transform player; // Reference to the player's transform
-    public float chaseRange = 10f; // Range within which the enemy will chase the player
-    public float patrolRange = 20f; // Range within which the enemy will randomly patrol
-    public float patrolSpeed = 2f; // Speed of patrolling
-    public float chaseSpeed = 5f; // Speed of chasing
+    [Header("Patrol")]
+    //Patrol
+    public string playerTag = "Player"; // Tag of the player GameObject
+    public float patrolRadius = 10f; // Radius within which the enemy patrols
+    public float chaseRadius = 20f; // Radius within which the enemy starts chasing the player
+    public float patrolSpeed = 3.5f; // Speed of patrolling
+    public float chaseSpeed = 6f; // Speed of chasing
+    public float patrolWaitTime = 2f; // Time the enemy waits at each patrol point
 
+    private Transform player; // Reference to the player's transform
     private NavMeshAgent navMeshAgent;
-    private Vector3 patrolPoint;
+    private Vector3 patrolPoint; // Random patrol point
     private bool isChasing = false;
-    private Vector3 initialPosition;
+
+    [Header("Attack")]
+    //Attack
+    public float attackRange = 2f;
+    public int attackDamage = 10;
+    public float attackInterval = 1f;
+    private HealthSystem playerHealth;
+    private IEnumerator attackCoroutine; // Reference to the coroutine for attacking
+
+    [Header("Enemy Health")]
+    [SerializeField] private int maxHealth;
+
+    public HealthSystem enemyHealthSystem;
+
 
     void Start()
     {
-        navMeshAgent = gameObject.AddComponent<NavMeshAgent>(); // Add NavMeshAgent component
-        initialPosition = transform.position;
-        navMeshAgent.speed = patrolSpeed; // Set initial speed
-        navMeshAgent.autoBraking = false; // Disable auto braking
-        SetRandomPatrolDestination(); // Set initial patrol destination
-        InvokeRepeating("UpdatePatrolDestination", 0f, 5f); // Change patrol destination every 5 seconds
+        player = GameObject.FindGameObjectWithTag(playerTag).transform;
+        navMeshAgent = GetComponent<NavMeshAgent>();
+        SetRandomPatrolPoint();
+        InvokeRepeating("CheckPlayerDistance", 0f, 0.5f); // Check player's distance periodically
+        playerHealth = GameObject.FindGameObjectWithTag("Player").GetComponent<HealthSystem>();
+
+        attackCoroutine = AttackPlayerRepeatedly();
+        StartCoroutine(attackCoroutine);
+
+        enemyHealthSystem.maxHealth = maxHealth;
     }
 
-    void Update()
+    private void Update()
     {
-        float distanceToPlayer = Vector3.Distance(player.position, transform.position);
-
-        if (distanceToPlayer <= chaseRange)
+        if (enemyHealthSystem.isDead == true)
         {
-            ChasePlayer();
+            //Stop the NavMeshAgent and the attack coroutine when the enemy dies
+            if (enemyHealthSystem.isDead == true)
+            {
+                if(attackCoroutine != null)
+                {
+                    StopCoroutine(attackCoroutine); // Stop the attacking coroutine
+                    navMeshAgent.isStopped = true;
+                }
+            }
+        }
+    }
+
+    void CheckPlayerDistance()
+    {
+        if (Vector3.Distance(transform.position, player.position) <= chaseRadius)
+        {
+            StartChasing();
         }
         else if (isChasing)
         {
             StopChasing();
         }
-        else
+        else if (!navMeshAgent.pathPending && navMeshAgent.remainingDistance < 0.5f)
         {
-            Patrol();
+            StartCoroutine(Patrol()); // Start patrolling
         }
     }
 
-    void ChasePlayer()
+    void StartChasing()
     {
         isChasing = true;
         navMeshAgent.speed = chaseSpeed;
-        if (navMeshAgent.isOnNavMesh)
-        {
-            navMeshAgent.SetDestination(player.position);
-        }
+        navMeshAgent.SetDestination(player.position); // Chase the player
     }
 
     void StopChasing()
     {
         isChasing = false;
         navMeshAgent.speed = patrolSpeed;
+        SetRandomPatrolPoint(); // Resume patrolling
     }
 
-    void Patrol()
+    IEnumerator Patrol()
     {
-        if (!isChasing && !navMeshAgent.pathPending && navMeshAgent.remainingDistance < 0.5f)
-        {
-            SetRandomPatrolDestination();
-        }
+        // Wait at the patrol point for a while
+        yield return new WaitForSeconds(patrolWaitTime);
+        SetRandomPatrolPoint();
     }
 
-    void SetRandomPatrolDestination()
+    void SetRandomPatrolPoint()
     {
-        patrolPoint = GetRandomPointInArea(initialPosition, patrolRange);
-        if (navMeshAgent.isOnNavMesh)
-        {
-            navMeshAgent.SetDestination(patrolPoint);
-        }
-    }
-
-    Vector3 GetRandomPointInArea(Vector3 center, float radius)
-    {
-        Vector3 randomDirection = Random.insideUnitSphere * radius;
-        randomDirection += center;
+        // Generate a random point within the patrol radius
+        Vector3 randomPoint = Random.insideUnitSphere * patrolRadius;
+        randomPoint += transform.position;
         NavMeshHit hit;
-        NavMesh.SamplePosition(randomDirection, out hit, radius, NavMesh.AllAreas);
-        return hit.position;
+        NavMesh.SamplePosition(randomPoint, out hit, patrolRadius, NavMesh.AllAreas);
+        patrolPoint = hit.position;
+        navMeshAgent.SetDestination(patrolPoint); // Set destination to the new patrol point
+    }
+    void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.blue;
+        Gizmos.DrawWireSphere(transform.position, chaseRadius);
+
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, attackRange);
     }
 
-    void UpdatePatrolDestination()
+    private IEnumerator AttackPlayerRepeatedly()
     {
-        if (!isChasing)
+        while (true)
         {
-            SetRandomPatrolDestination();
+            yield return new WaitForSeconds(attackInterval);
+
+            // Check if the player is within attack range
+            if (Vector3.Distance(transform.position, playerHealth.transform.position) <= attackRange)
+            {
+                // Attack the player
+                playerHealth.Damage(attackDamage);
+            }
         }
     }
 }
